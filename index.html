@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>减肥体重记录器</title>
+    
+    <!-- PWA 必备：manifest 和主题色 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a9c6c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="体重记录">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --bg: #f0f4f1;
+            --card-bg: #ffffff;
+            --primary: #4a9c6c;
+            --primary-hover: #3d845b;
+            --danger: #e07060;
+            --danger-hover: #c95a4b;
+            --text: #2c3e2d;
+            --text-secondary: #5f7d63;
+            --border: #dce8df;
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.10);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --accent-down: #38a169;
+            --accent-up: #e07060;
+            --accent-neutral: #8b9d8e;
+            --chart-line: #4a9c6c;
+            --chart-fill: rgba(74, 156, 108, 0.10);
+            --chart-target: #e8965c;
+            --font: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font);
+            background: linear-gradient(160deg, #eaf5ec 0%, #f0f4f1 30%, #f5f8f5 60%, #f0f4f1 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px 16px 40px;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            padding: 8px 0 4px;
+        }
+        .header .icon-row {
+            font-size: 40px;
+            margin-bottom: 2px;
+            animation: float 3s ease-in-out infinite;
+            display: inline-block;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .header h1 {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.3px;
+            margin: 0;
+        }
+        .header .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            font-weight: 400;
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: box-shadow var(--transition);
+        }
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: -0.2px;
+        }
+        .card-title .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        /* 表单 */
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            min-width: 110px;
+        }
+        .form-group label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.2px;
+            text-transform: uppercase;
+        }
+        .form-group input {
+            padding: 11px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-family: var(--font);
+            transition: all var(--transition);
+            background: #fafcfa;
+            color: var(--text);
+            width: 100%;
+            outline: none;
+        }
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(74, 156, 108, 0.08);
+            background: #fff;
+        }
+        .btn {
+            padding: 11px 22px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-weight: 650;
+            cursor: pointer;
+            font-family: var(--font);
+            letter-spacing: 0.2px;
+            transition: all var(--transition);
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: center;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            min-width: 80px;
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(74, 156, 108, 0.3);
+        }
+        .btn-primary:active {
+            transform: scale(0.97);
+            transition: transform 0.1s;
+        }
+        .btn-sm {
+            padding: 7px 13px;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn-outline {
+            background: #fff;
+            border: 2px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: #f8fbf9;
+        }
+        .btn-danger-sm {
+            background: transparent;
+            border: 1.5px solid transparent;
+            color: #c0a0a0;
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-weight: 500;
+        }
+        .btn-danger-sm:hover {
+            background: #fef5f4;
+            border-color: #f5d5d1;
+            color: var(--danger);
+        }
+
+        /* 目标体重行 */
+        .target-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .target-row label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .target-row input {
+            width: 90px;
+            padding: 8px 11px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-family: var(--font);
+            text-align: center;
+            transition: all var(--transition);
+            background: #fafcfa;
+            color: var(--text);
+            outline: none;
+        }
+        .target-row input:focus {
+            border-color: var(--chart-target);
+            box-shadow: 0 0 0 4px rgba(232, 150, 92, 0.07);
+            background: #fff;
+        }
+        .target-row .unit {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .target-badge {
+            display: inline-block;
+            background: #fef5ee;
+            color: #c87a3a;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* 图表容器 */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 320px;
+        }
+        .chart-wrapper canvas {
+            display: block;
+        }
+        @media (max-width: 480px) {
+            .chart-wrapper {
+                height: 260px;
+            }
+            .form-row {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .btn-primary {
+                width: 100%;
+            }
+            .card {
+                padding: 16px 14px;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+        }
+
+        /* 记录列表 */
+        .record-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 420px;
+            overflow-y: auto;
+            padding-right: 4px;
+            scroll-behavior: smooth;
+        }
+        .record-list::-webkit-scrollbar {
+            width: 5px;
+        }
+        .record-list::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+        }
+        .record-list::-webkit-scrollbar-thumb {
+            background: #cdd9cf;
+            border-radius: 10px;
+        }
+        .record-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 16px;
+            background: #fafcfa;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            transition: all var(--transition);
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .record-item:hover {
+            border-color: #d0e0d3;
+            background: #fdfefd;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        }
+        .record-item .date-col {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.9rem;
+            min-width: 90px;
+            letter-spacing: -0.2px;
+        }
+        .record-item .weight-col {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text);
+            min-width: 60px;
+            text-align: center;
+        }
+        .record-item .change-col {
+            font-size: 0.8rem;
+            font-weight: 600;
+            min-width: 55px;
+            text-align: right;
+            padding: 3px 9px;
+            border-radius: 12px;
+            letter-spacing: -0.1px;
+        }
+        .change-down {
+            color: var(--accent-down);
+            background: #eef7f1;
+        }
+        .change-up {
+            color: var(--accent-up);
+            background: #fef5f4;
+        }
+        .change-neutral {
+            color: var(--accent-neutral);
+            background: #f5f6f5;
+        }
+        .record-item .actions-col {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        /* 统计卡片网格 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        .stat-card {
+            background: #fafcfa;
+            border-radius: var(--radius-sm);
+            padding: 14px 15px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all var(--transition);
+        }
+        .stat-card:hover {
+            background: #fff;
+            box-shadow: var(--shadow);
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+        .stat-value.highlight-green {
+            color: var(--accent-down);
+        }
+        .stat-value.highlight-orange {
+            color: var(--chart-target);
+        }
+        .stat-label {
+            font-size: 0.73rem;
+            color: var(--text-secondary);
+            margin-top: 3px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state .emoji {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 10px;
+            opacity: 0.7;
+        }
+        .empty-state p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-120px);
+            background: #2c3e2d;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: var(--font);
+            letter-spacing: 0.2px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast.success {
+            background: #3d7a50;
+        }
+        .toast.warning {
+            background: #c87a3a;
+        }
+
+        /* 确认对话框覆盖 */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .confirm-box {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 24px 28px;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            max-width: 360px;
+            width: 90%;
+            animation: popIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .confirm-box p {
+            margin-bottom: 18px;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .confirm-box .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 头部 -->
+        <div class="header">
+            <span class="icon-row">⚖️</span>
+            <h1>减肥体重记录器</h1>
+            <p class="subtitle">坚持记录，见证改变</p>
+        </div>
+
+        <!-- 输入卡片 -->
+        <div class="card" id="inputCard">
+            <div class="card-title"><span class="dot"></span>📝 记录体重</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dateInput">📅 日期</label>
+                    <input type="date" id="dateInput">
+                </div>
+                <div class="form-group">
+                    <label for="weightInput">⚖️ 体重 (kg)</label>
+                    <input type="number" id="weightInput" placeholder="例如 70.5" step="0.1" min="20" max="300" inputmode="decimal">
+                </div>
+                <button class="btn btn-primary" id="addBtn" title="添加或更新记录">
+                    ➕ 记录
+                </button>
+            </div>
+            <div class="target-row">
+                <label for="targetInput">🎯 目标体重：</label>
+                <input type="number" id="targetInput" placeholder="目标 kg" step="0.1" min="20" max="300" inputmode="decimal">
+                <span class="unit">kg</span>
+                <span class="target-badge" id="targetBadge" style="display:none;"></span>
+                <button class="btn btn-sm btn-outline" id="clearTargetBtn" style="display:none;" title="清除目标">✕</button>
+            </div>
+        </div>
+
+        <!-- 图表卡片 -->
+        <div class="card" id="chartCard">
+            <div class="card-title"><span class="dot"></span>📈 体重变化曲线</div>
+            <div class="chart-wrapper" id="chartWrapper">
+                <canvas id="weightChart"></canvas>
+            </div>
+            <div class="empty-state" id="chartEmpty" style="display:none;">
+                <span class="emoji">📊</span>
+                <p>还没有记录数据<br>添加第一条体重记录吧！</p>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="card" id="statsCard">
+            <div class="card-title"><span class="dot"></span>📋 数据概览</div>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statLatest">--</div>
+                    <div class="stat-label">最新体重 (kg)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value highlight-green" id="statLowest">--</div>
+                    <div class="stat-label">最低体重 (kg)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statChange">--</div>
+                    <div class="stat-label">总体变化 (kg)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value highlight-orange" id="statToTarget">--</div>
+                    <div class="stat-label">距目标 (kg)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statDays">--</div>
+                    <div class="stat-label">记录天数</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 记录列表卡片 -->
+        <div class="card" id="listCard">
+            <div class="card-title" style="justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <span class="dot"></span>📜 历史记录
+                </span>
+                <button class="btn btn-sm btn-outline" id="clearAllBtn" title="清空所有记录">
+                    🗑️ 清空全部
+                </button>
+            </div>
+            <ul class="record-list" id="recordList">
+                <li class="empty-state">
+                    <span class="emoji">📭</span>
+                    <p>暂无记录<br>在上方添加你的体重数据吧</p>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============ 注册 Service Worker ============
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js').then(function(registration) {
+                    console.log('Service Worker 注册成功，作用域：', registration.scope);
+                }).catch(function(error) {
+                    console.log('Service Worker 注册失败：', error);
+                });
+            });
+        }
+
+        // ============ 原有业务逻辑（完全填充） ============
+        (function() {
+            // DOM 元素
+            const dateInput = document.getElementById('dateInput');
+            const weightInput = document.getElementById('weightInput');
+            const addBtn = document.getElementById('addBtn');
+            const targetInput = document.getElementById('targetInput');
+            const targetBadge = document.getElementById('targetBadge');
+            const clearTargetBtn = document.getElementById('clearTargetBtn');
+            const recordList = document.getElementById('recordList');
+            const chartWrapper = document.getElementById('chartWrapper');
+            const chartEmpty = document.getElementById('chartEmpty');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            const toast = document.getElementById('toast');
+            const weightChartCanvas = document.getElementById('weightChart');
+
+            const statLatest = document.getElementById('statLatest');
+            const statLowest = document.getElementById('statLowest');
+            const statChange = document.getElementById('statChange');
+            const statToTarget = document.getElementById('statToTarget');
+            const statDays = document.getElementById('statDays');
+
+            const STORAGE_KEY_RECORDS = 'weight_tracker_records';
+            const STORAGE_KEY_TARGET = 'weight_tracker_target';
+
+            let records = [];
+            let targetWeight = null;
+            let chartInstance = null;
+
+            function init() {
+                const today = getTodayString();
+                dateInput.value = today;
+                dateInput.max = today;
+                loadData();
+                renderAll();
+                bindEvents();
+            }
+
+            function getTodayString() {
+                const d = new Date();
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function loadData() {
+                try {
+                    const rawRecords = localStorage.getItem(STORAGE_KEY_RECORDS);
+                    records = rawRecords ? JSON.parse(rawRecords) : [];
+                    if (!Array.isArray(records)) records = [];
+                    records = records.filter(r => r && r.date && typeof r.weight === 'number' && r.weight > 0);
+                    const rawTarget = localStorage.getItem(STORAGE_KEY_TARGET);
+                    targetWeight = rawTarget ? parseFloat(rawTarget) : null;
+                    if (targetWeight !== null && (isNaN(targetWeight) || targetWeight <= 0 || targetWeight > 300)) {
+                        targetWeight = null;
+                    }
+                } catch (e) {
+                    records = [];
+                    targetWeight = null;
+                }
+            }
+
+            function saveRecords() {
+                try {
+                    localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+                } catch (e) {
+                    showToast('⚠️ 存储空间不足，请清理旧记录', 'warning');
+                }
+            }
+
+            function saveTarget() {
+                try {
+                    if (targetWeight !== null) {
+                        localStorage.setItem(STORAGE_KEY_TARGET, String(targetWeight));
+                    } else {
+                        localStorage.removeItem(STORAGE_KEY_TARGET);
+                    }
+                } catch (e) {}
+            }
+
+            function renderAll() {
+                renderTargetUI();
+                renderChart();
+                renderStats();
+                renderList();
+            }
+
+            function renderTargetUI() {
+                if (targetWeight !== null) {
+                    targetInput.value = targetWeight;
+                    targetBadge.textContent = `目标：${targetWeight} kg`;
+                    targetBadge.style.display = 'inline-block';
+                    clearTargetBtn.style.display = 'inline-flex';
+                } else {
+                    targetInput.value = '';
+                    targetBadge.style.display = 'none';
+                    clearTargetBtn.style.display = 'none';
+                }
+            }
+
+            function getSortedRecords() {
+                return [...records].sort((a, b) => a.date.localeCompare(b.date));
+            }
+
+            function getSortedRecordsDesc() {
+                return [...records].sort((a, b) => b.date.localeCompare(a.date));
+            }
+
+            function renderChart() {
+                const sorted = getSortedRecords();
+                if (sorted.length === 0) {
+                    chartWrapper.style.display = 'none';
+                    chartEmpty.style.display = 'block';
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                        chartInstance = null;
+                    }
+                    return;
+                }
+                chartWrapper.style.display = 'block';
+                chartEmpty.style.display = 'none';
+                const labels = sorted.map(r => r.date);
+                const weights = sorted.map(r => r.weight);
+                const datasets = [{
+                    label: '体重 (kg)',
+                    data: weights,
+                    borderColor: '#4a9c6c',
+                    backgroundColor: 'rgba(74, 156, 108, 0.10)',
+                    borderWidth: 2.8,
+                    pointBackgroundColor: '#4a9c6c',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2.5,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    pointHoverBackgroundColor: '#3d845b',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    order: 1,
+                }];
+                if (targetWeight !== null && sorted.length >= 1) {
+                    const targetData = new Array(sorted.length).fill(targetWeight);
+                    datasets.push({
+                        label: `目标 ${targetWeight} kg`,
+                        data: targetData,
+                        borderColor: '#e8965c',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.2,
+                        borderDash: [8, 5],
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false,
+                        tension: 0,
+                        order: 0,
+                    });
+                }
+                const ctx = weightChartCanvas.getContext('2d');
+                if (chartInstance) {
+                    chartInstance.data.labels = labels;
+                    chartInstance.data.datasets = datasets;
+                    chartInstance.update('default');
+                } else {
+                    chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels, datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: {
+                                        usePointStyle: true,
+                                        pointStyleWidth: 10,
+                                        padding: 20,
+                                        font: { size: 12, weight: '600', family: "'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" },
+                                        color: '#2c3e2d',
+                                        boxWidth: 10,
+                                        boxHeight: 10,
+                                    },
+                                },
+                                tooltip: {
+                                    backgroundColor: '#2c3e2d',
+                                    titleFont: { size: 13, weight: '600' },
+                                    bodyFont: { size: 13, weight: '500' },
+                                    padding: 14,
+                                    cornerRadius: 10,
+                                    displayColors: true,
+                                    boxPadding: 4,
+                                    callbacks: {
+                                        label: function(ctx) { return ` ${ctx.dataset.label}: ${ctx.parsed.y} kg`; }
+                                    },
+                                },
+                            },
+                            scales: {
+                                x: {
+                                    title: { display: true, text: '日期', font: { size: 11, weight: '600' }, color: '#5f7d63' },
+                                    grid: { display: false },
+                                    ticks: { font: { size: 10 }, color: '#7d9a80', maxRotation: 45, autoSkip: true, maxTicksLimit: 14 },
+                                },
+                                y: {
+                                    title: { display: true, text: '体重 (kg)', font: { size: 11, weight: '600' }, color: '#5f7d63' },
+                                    grid: { color: '#eef2ee', drawBorder: false },
+                                    ticks: { font: { size: 11 }, color: '#5f7d63', callback: function(v) { return v + ' kg'; } },
+                                    beginAtZero: false,
+                                },
+                            },
+                        },
+                    });
+                }
+                if (targetWeight !== null && sorted.length > 0 && chartInstance) {
+                    const allWeights = [...weights, targetWeight];
+                    const minW = Math.min(...allWeights);
+                    const maxW = Math.max(...allWeights);
+                    const padding = Math.max((maxW - minW) * 0.2, 2);
+                    chartInstance.options.scales.y.min = Math.floor(Math.max(0, minW - padding));
+                    chartInstance.options.scales.y.max = Math.ceil(maxW + padding);
+                    chartInstance.update('none');
+                } else if (chartInstance && chartInstance.options.scales.y) {
+                    delete chartInstance.options.scales.y.min;
+                    delete chartInstance.options.scales.y.max;
+                    chartInstance.update('none');
+                }
+            }
+
+            function renderStats() {
+                const sorted = getSortedRecords();
+                if (sorted.length === 0) {
+                    statLatest.textContent = '--';
+                    statLowest.textContent = '--';
+                    statChange.textContent = '--';
+                    statToTarget.textContent = '--';
+                    statDays.textContent = '0';
+                    return;
+                }
+                const latest = sorted[sorted.length - 1].weight;
+                const lowest = Math.min(...sorted.map(r => r.weight));
+                const first = sorted[0].weight;
+                const change = latest - first;
+                const uniqueDays = new Set(sorted.map(r => r.date)).size;
+                statLatest.textContent = latest.toFixed(1);
+                statLowest.textContent = lowest.toFixed(1);
+                statChange.textContent = (change >= 0 ? '+' : '') + change.toFixed(1);
+                statDays.textContent = uniqueDays;
+                if (change < -0.05) {
+                    statChange.classList.add('highlight-green');
+                    statChange.classList.remove('highlight-orange');
+                } else if (change > 0.05) {
+                    statChange.classList.add('highlight-orange');
+                    statChange.classList.remove('highlight-green');
+                } else {
+                    statChange.classList.remove('highlight-green', 'highlight-orange');
+                }
+                if (targetWeight !== null) {
+                    const toTarget = latest - targetWeight;
+                    statToTarget.textContent = (toTarget >= 0 ? '+' : '') + toTarget.toFixed(1);
+                    if (toTarget < -0.05) {
+                        statToTarget.classList.add('highlight-green');
+                        statToTarget.classList.remove('highlight-orange');
+                    } else if (toTarget > 0.05) {
+                        statToTarget.classList.add('highlight-orange');
+                        statToTarget.classList.remove('highlight-green');
+                    } else {
+                        statToTarget.classList.remove('highlight-green', 'highlight-orange');
+                    }
+                } else {
+                    statToTarget.textContent = '未设定';
+                    statToTarget.classList.remove('highlight-green', 'highlight-orange');
+                }
+            }
+
+            function renderList() {
+                const sortedDesc = getSortedRecordsDesc();
+                const sortedAsc = getSortedRecords();
+                if (sortedDesc.length === 0) {
+                    recordList.innerHTML = `<li class="empty-state"><span class="emoji">📭</span><p>暂无记录<br>在上方添加你的体重数据吧</p></li>`;
+                    return;
+                }
+                recordList.innerHTML = sortedDesc.map((record) => {
+                    const ascIndex = sortedAsc.findIndex(r => r.id === record.id);
+                    let changeHtml = '';
+                    if (ascIndex > 0) {
+                        const prevWeight = sortedAsc[ascIndex - 1].weight;
+                        const diff = record.weight - prevWeight;
+                        const diffStr = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+                        if (diff < -0.03) changeHtml = `<span class="change-col change-down">↓ ${diffStr} kg</span>`;
+                        else if (diff > 0.03) changeHtml = `<span class="change-col change-up">↑ ${diffStr} kg</span>`;
+                        else changeHtml = `<span class="change-col change-neutral">→ ${diffStr} kg</span>`;
+                    } else {
+                        changeHtml = `<span class="change-col change-neutral">起始</span>`;
+                    }
+                    return `<li class="record-item">
+                        <span class="date-col">📅 ${formatDate(record.date)}</span>
+                        <span class="weight-col">${record.weight.toFixed(1)} kg</span>
+                        ${changeHtml}
+                        <span class="actions-col"><button class="btn-danger-sm" data-action="delete" data-id="${record.id}" title="删除此记录">🗑️</button></span>
+                    </li>`;
+                }).join('');
+                recordList.querySelectorAll('[data-action="delete"]').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        confirmDeleteRecord(this.getAttribute('data-id'));
+                    });
+                });
+            }
+
+            function formatDate(dateStr) {
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                    return `${parseInt(parts[1])}月${parseInt(parts[2])}日 ${weekdays[d.getDay()]}`;
+                }
+                return dateStr;
+            }
+
+            function bindEvents() {
+                addBtn.addEventListener('click', handleAddRecord);
+                weightInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); handleAddRecord(); } });
+                dateInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); weightInput.focus(); } });
+                targetInput.addEventListener('change', handleTargetChange);
+                targetInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); handleTargetChange(); targetInput.blur(); } });
+                clearTargetBtn.addEventListener('click', handleClearTarget);
+                clearAllBtn.addEventListener('click', confirmClearAll);
+                recordList.addEventListener('click', function(e) {
+                    const deleteBtn = e.target.closest('[data-action="delete"]');
+                    if (deleteBtn) {
+                        e.stopPropagation();
+                        confirmDeleteRecord(deleteBtn.getAttribute('data-id'));
+                    }
+                });
+            }
+
+            function handleAddRecord() {
+                const date = dateInput.value.trim();
+                const weightStr = weightInput.value.trim();
+                if (!date) { showToast('⚠️ 请选择日期', 'warning'); dateInput.focus(); return; }
+                if (date > getTodayString()) { showToast('⚠️ 不能使用未来日期', 'warning'); dateInput.focus(); return; }
+                if (!weightStr) { showToast('⚠️ 请输入体重', 'warning'); weightInput.focus(); return; }
+                const weight = parseFloat(weightStr);
+                if (isNaN(weight) || weight <= 0 || weight > 300) { showToast('⚠️ 请输入有效的体重（1-300 kg）', 'warning'); weightInput.focus(); return; }
+                const existingIndex = records.findIndex(r => r.date === date);
+                if (existingIndex >= 0) {
+                    const existingWeight = records[existingIndex].weight;
+                    showConfirm(`📅 ${formatDate(date)} 已有记录 ${existingWeight.toFixed(1)} kg\n\n是否更新为 ${weight.toFixed(1)} kg？`, () => {
+                        records[existingIndex].weight = parseFloat(weight.toFixed(1));
+                        records[existingIndex].id = generateId();
+                        saveRecords();
+                        renderAll();
+                        showToast('✅ 记录已更新', 'success');
+                        resetInputs();
+                    });
+                    return;
+                }
+                records.push({ id: generateId(), date, weight: parseFloat(weight.toFixed(1)) });
+                saveRecords();
+                renderAll();
+                showToast('✅ 记录已添加', 'success');
+                resetInputs();
+                recordList.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function resetInputs() {
+                weightInput.value = '';
+                dateInput.value = getTodayString();
+                weightInput.focus();
+            }
+
+            function handleTargetChange() {
+                const val = targetInput.value.trim();
+                if (!val) {
+                    targetWeight = null;
+                    saveTarget();
+                    renderAll();
+                    showToast('🎯 目标体重已清除', 'warning');
+                    return;
+                }
+                const num = parseFloat(val);
+                if (isNaN(num) || num <= 0 || num > 300) {
+                    showToast('⚠️ 请输入有效的目标体重', 'warning');
+                    targetInput.value = targetWeight !== null ? targetWeight : '';
+                    return;
+                }
+                targetWeight = parseFloat(num.toFixed(1));
+                saveTarget();
+                renderAll();
+                showToast('🎯 目标体重已设定', 'success');
+            }
+
+            function handleClearTarget() {
+                targetWeight = null;
+                saveTarget();
+                renderAll();
+                showToast('🎯 目标体重已清除', 'warning');
+            }
+
+            function confirmDeleteRecord(recordId) {
+                const record = records.find(r => r.id === recordId);
+                if (!record) return;
+                showConfirm(`确定删除 ${formatDate(record.date)} 的记录吗？\n体重：${record.weight.toFixed(1)} kg`, () => {
+                    records = records.filter(r => r.id !== recordId);
+                    saveRecords();
+                    renderAll();
+                    showToast('🗑️ 记录已删除', 'warning');
+                });
+            }
+
+            function confirmClearAll() {
+                if (records.length === 0) { showToast('📭 没有可删除的记录', 'warning'); return; }
+                showConfirm(`⚠️ 确定要清空全部 ${records.length} 条记录吗？\n\n此操作无法撤销！`, () => {
+                    records = [];
+                    saveRecords();
+                    renderAll();
+                    showToast('🗑️ 所有记录已清空', 'warning');
+                });
+            }
+
+            function showConfirm(message, onConfirm) {
+                const existing = document.querySelector('.confirm-overlay');
+                if (existing) existing.remove();
+                const overlay = document.createElement('div');
+                overlay.className = 'confirm-overlay';
+                overlay.innerHTML = `<div class="confirm-box"><p>${message.replace(/\n/g, '<br>')}</p><div class="btn-row"><button class="btn btn-sm btn-outline" id="confirmCancel">取消</button><button class="btn btn-sm btn-primary" id="confirmOk" style="background:#e07060;">确认</button></div></div>`;
+                document.body.appendChild(overlay);
+                const closeOverlay = () => { overlay.style.opacity = '0'; overlay.style.transition = 'opacity 0.2s ease'; setTimeout(() => overlay.remove(), 200); };
+                overlay.querySelector('#confirmCancel').addEventListener('click', closeOverlay);
+                overlay.querySelector('#confirmOk').addEventListener('click', () => { closeOverlay(); if (onConfirm) onConfirm(); });
+                overlay.addEventListener('click', function(e) { if (e.target === overlay) closeOverlay(); });
+                const escHandler = (e) => { if (e.key === 'Escape') { closeOverlay(); document.removeEventListener('keydown', escHandler); } };
+                document.addEventListener('keydown', escHandler);
+                setTimeout(() => { const okBtn = overlay.querySelector('#confirmOk'); if (okBtn) okBtn.focus(); }, 100);
+            }
+
+            let toastTimer = null;
+            function showToast(message, type = '') {
+                if (toastTimer) clearTimeout(toastTimer);
+                toast.textContent = message;
+                toast.className = 'toast ' + type + ' show';
+                toastTimer = setTimeout(() => { toast.classList.remove('show'); toast.className = 'toast'; }, 2200);
+            }
+
+            function generateId() {
+                return 'rec_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+            }
+
+            init();
+            setTimeout(() => { if (records.length === 0) weightInput.focus(); }, 300);
+        })();
+    </script>
+</body>
+</html>
